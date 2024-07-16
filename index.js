@@ -70,6 +70,8 @@
 
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
@@ -78,8 +80,12 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173'],
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser())
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.obyjfl3.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -98,6 +104,19 @@ async function run() {
     await client.connect();
 
     const userCollection = client.db('mfsDb').collection('user');
+
+    app.post('/jwt', async(req, res) =>{
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET , {expiresIn: '1h'})
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: false,
+     
+      })
+      .send({success:true})
+    })
+
 
     app.post('/user', async (req, res) => {
       const { email, mobile, pin, ...rest } = req.body;
@@ -141,6 +160,44 @@ async function run() {
         res.status(400).send({ error: 'Invalid PIN' });
       }
     });
+
+    // Assuming you have a route for logout in your Express app
+    app.post('/logout', (req, res) => {
+      res.clearCookie('token').send({ message: 'Logged out successfully' });
+    });
+
+
+    app.get('/userrole/:input', async (req, res) => {
+      const userInput = req.query.input;
+      console.log('user on backend::::', userInput);
+      
+     
+        const user = await userCollection.findOne({
+          $or: [{ email: userInput }, { mobile: userInput }],
+        });
+    
+       
+    
+        const { role } = user;
+        console.log('Role on Backend',user);
+        res.json({ user });
+      } 
+    );
+    
+    
+    // app.get('/user/role', async (req, res) => {
+    //   const { email, mobile } = req.query;
+
+    //   const user = await userCollection.findOne({
+    //     $or: [{ email }, { mobile }],
+    //   });
+
+    //   if (user) {
+    //     res.send({ role: user.role });
+    //   } else {
+    //     res.status(404).send({ error: 'User not found' });
+    //   }
+    // });
 
     // Send a ping to confirm a successful connection
     await client.db('admin').command({ ping: 1 });
