@@ -184,20 +184,43 @@ async function run() {
       } 
     );
     
+  
+
+    // Get users with role "User" or "Agent"
+app.get('/users', async (req, res) => {
+  try {
+    const users = await userCollection.find({ role: { $in: ['User', 'Agent'] } }).toArray();
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching users' });
+  }
+});
+
+
+// Update user status
+app.patch('/user/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  try {
+    const result = await userCollection.updateOne(
+      { _id: ObjectId(id) }, // Convert id string to ObjectId
+      { $set: { status } }
+    );
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ message: 'User status updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error updating user status' });
+  }
+});
+
     
-    // app.get('/user/role', async (req, res) => {
-    //   const { email, mobile } = req.query;
 
-    //   const user = await userCollection.findOne({
-    //     $or: [{ email }, { mobile }],
-    //   });
 
-    //   if (user) {
-    //     res.send({ role: user.role });
-    //   } else {
-    //     res.status(404).send({ error: 'User not found' });
-    //   }
-    // });
 
     // Send a ping to confirm a successful connection
     await client.db('admin').command({ ping: 1 });
